@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: external-dns
+  namespace: argocd
+spec:
+  syncPolicy:
+    automated: 
+      prune: true
+      selfHeal: true
+  project: system
+  destination:
+    namespace: kube-system
+    server: 'https://kubernetes.default.svc'
+  source:
+    repoURL: https://kubernetes-sigs.github.io/external-dns/
+    chart: external-dns
+    targetRevision: 1.14.5
+    helm:
+      values: |-
+        serviceAccount:
+          name: external-dns
+        nodeSelector: 
+          nodegroup: system
+        resources:
+          requests:
+            cpu: 5m
+            memory: 10Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
+        # serviceMonitor:
+        #   enabled: true

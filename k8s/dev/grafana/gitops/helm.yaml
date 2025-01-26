@@ -1,0 +1,68 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+spec:
+  project: monitoring
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+    automated: 
+      prune: true
+      selfHeal: true
+  source:
+    chart: grafana
+    repoURL: https://grafana.github.io/helm-charts
+    targetRevision: 8.3.6
+    helm:
+      values: |-
+        deploymentStrategy:
+          type: Recreate
+        serviceMonitor:
+          enabled: false
+        ingress:
+          enabled: true
+          ingressClassName: alb
+          annotations:
+            alb.ingress.kubernetes.io/healthcheck-path: /api/health
+            alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+            alb.ingress.kubernetes.io/scheme: internet-facing
+            alb.ingress.kubernetes.io/target-type: ip
+            alb.ingress.kubernetes.io/group.name: private
+          hosts: 
+            - grafana.logicalcommander.com
+        resources:
+          requests:
+            cpu: 100m
+            memory: 128Mi
+          limits:
+            cpu: 512m
+            memory: 1024Mi
+        nodeSelector: 
+          nodegroup: monitoring
+          topology.kubernetes.io/zone: us-east-2a
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+            - name: Prometheus
+              type: prometheus
+              uid: prometheus
+              url: http://prometheus-stack-kube-prom-prometheus:9090/
+              isDefault: true
+              access: proxy
+              editable: true
+            - name: Loki
+              type: loki
+              uid: loki
+              url: http://grafana-loki-gateway:80/
+              isDefault: false
+              access: proxy
+              editable: true
+        persistence:
+          enabled: true
+          existingClaim: grafana-data

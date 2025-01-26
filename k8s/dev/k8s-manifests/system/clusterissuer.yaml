@@ -1,0 +1,19 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: cluster-issuer
+spec:
+  acme:
+    server: https://acme-v02.api.letsencrypt.org/directory
+    email: urits91@gmail.com
+    privateKeySecretRef:
+      name: letsencrypt-cert-manager
+    solvers:
+    - dns01:
+        route53:
+          hostedZoneID: 93JKDPR276ARZ9
+          region: us-east-2
+      selector:
+        dnsZones:
+        - "mydomain.com"
+        - "*.mydomain.com"

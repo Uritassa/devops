@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager
+  namespace: argocd
+spec:
+  project: system
+  destination:
+    namespace: kube-system
+    server: 'https://kubernetes.default.svc'
+  syncPolicy:
+    automated: 
+      prune: true
+      selfHeal: true
+  source:
+    repoURL: https://charts.jetstack.io
+    targetRevision: "v1.14.2"
+    chart: cert-manager
+    helm:
+      values: |-
+        serviceAccount:
+          name: cert-manager
+        installCRDs: true
+        crds: 
+          enable: true
+        nodeSelector:
+          nodegroup: system
+        securityContext:
+          fsGroup: 1001
+        webhook:
+          nodeSelector:
+            nodegroup: system
+        cainjector:
+          nodeSelector:
+            nodegroup: system
+  

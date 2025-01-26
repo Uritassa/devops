@@ -1,0 +1,72 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: prometheus-alerts
+  labels:
+    prometheus: prom-rules
+spec:
+  groups:
+    - name: Prometheus_Alerts
+      rules:
+      - alert: CrashLoopBackOff
+        expr: kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "{{ $labels.pod }} CrashLoopBackOff Pod "
+          description: Pod {{ $labels.pod }} is not in a running state for more than 5 minutes.
+
+      - alert: PodUnhealthy
+        expr: sum by (namespace, pod)(kube_pod_status_phase{phase=~"Unknown|Failed"}) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          description: Pod {{ $labels.pod }} is unhealthy for more than 5 minutes.
+          summary: Pod {{ $labels.pod }} unhealthy
+
+      - alert: PodNotReady
+        expr: sum by (namespace, pod) (max_over_time(kube_pod_container_status_restarts_total[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is not stable"
+          description: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is restarting more than 5 times in 5 minutes."
+
+      - alert: ImagePullBackOff
+        expr: kube_pod_container_status_waiting_reason{reason="ImagePullBackOff"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod {{ $labels.pod }} Image Pull BackOff"
+          description: "Pod {{ $labels.pod }} is failing to pull its image for more than 5 minutes. Check the image name, registry credentials, and network connectivity."
+
+      - alert: ErrImagePull
+        expr: kube_pod_container_status_waiting_reason{reason="ErrImagePull"} == 1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Pod {{ $labels.pod }} Error Image Pull"
+          description: "Pod {{ $labels.pod }} encountered an error while pulling the image for more than 5 minutes. Check the image name, registry credentials, and network connectivity."
+
+      - alert: NodeMemoryPressure
+        expr: kube_node_status_condition{condition="MemoryPressure", status="true"} == 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.node }} has MemoryPressure"
+          description: "Node {{ $labels.node }} is experiencing memory pressure for more than 5 minutes. This may cause pod evictions."
+
+      - alert: NodeNotReady
+        expr: kube_node_status_condition{condition="Ready", status="true"} == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Node {{ $labels.node }} NotReady"
+          description: "Node {{ $labels.node }} is not ready for more than 5 minutes."
