@@ -1,0 +1,94 @@
+name: "Kubernetes deployment"
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment target'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      aws_region:
+        description: 'Select aws region target'
+        required: true
+        type: choice
+        options:
+          - us-east-1
+          - us-east-2
+      k8s_cluster_name:
+        description: 'Select from the list'
+        required: true
+        type: string
+      directory:
+        description: 'Specify the directory name (e.g., my-k8s-directory)'
+        required: true
+        type: string
+      gitops:
+        description: 'Deploy using GitOps (yes or no)'
+        required: true
+        type: choice
+        options:
+          - "yes"
+          - "no"
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      directory:
+        required: true
+        type: string
+      gitops:
+        required: true
+        type: string
+      k8s_cluster_name:
+        required: true
+        type: string
+      aws_region:
+        required: true
+        type: string
+jobs:
+  k8s:
+    name: Deploying to Kubernetes
+    environment: 
+      name: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.aws_role }}
+        aws-region: ${{ inputs.aws_region }}
+        role-session-name: Github-OIDC
+
+    - name: Configure kubectl for Amazon EKS
+      run: aws eks --region ${{ inputs.aws_region }} update-kubeconfig --name ${{ inputs.k8s_cluster_name}}
+
+    # Step for GitOps Deployment
+    - name: Deploy Using GitOps
+      if: inputs.gitops == 'yes'
+      working-directory: ./k8s/${{ inputs.environment }}/${{ inputs.directory }}/gitops
+      run: |
+        echo "Deploying using GitOps..."
+        find . -type f -name "*.yaml" | while read file; do
+          echo "Applying $file..."
+          kubectl apply -f "$file"
+        done
+
+    # Step for Regular Kubernetes Deployment
+    - name: Deploy Regular Kubernetes Files
+      if: inputs.gitops == 'no'
+      working-directory: ./k8s/${{ inputs.environment }}/${{ inputs.directory }}
+      run: |
+        echo "Deploying Kubernetes files..."
+        find . -type f -name "*.yaml" | while read file; do
+          echo "Applying $file..."
+          kubectl apply -f "$file"
+        done

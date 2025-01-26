@@ -1,0 +1,101 @@
+name: iac pipeline
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Select environment target'
+        required: true
+        type: choice
+        options:
+          - dev
+          - prod
+      aws_region:
+        required: true
+        type: choice
+        options:
+          - us-east-1
+          - us-east-2
+      path:
+        required: false
+        type: string
+
+          
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+      aws_region:
+        required: true
+        type: string
+      path:
+        required: false
+        type: string
+
+jobs:
+  iac:
+    name: Creating cloud resources in ${{ inputs.aws_region }} for ${{ inputs.environment }} environment
+    environment: 
+      name: ${{ inputs.environment }}
+    permissions:
+      id-token: write
+      contents: read
+    env:
+      terraform_version: 1.9.8
+      terragrunt_version: 0.68.10
+      aws_region: ${{ inputs.aws_region }}
+      region_directory: ${{ inputs.aws_region }}
+      DYNAMODB_TABLE: ${{ vars.dynamodb_table}}
+      BUCKET_REGION: ${{ vars.bucket_region }}
+      BUCKET_NAME: ${{ vars.bucket_name }}
+      ORG_GITHUB_TOKEN: ${{ secrets.ORG_GITHUB_TOKEN }} # organization token for argocd repository server
+      POSTGRES_DB_PASSWORD: ${{ secrets.POSTGRES_DB_PASSWORD }} # secrets-manager PostgreSQL credentials
+
+    runs-on: ubuntu-latest
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v4
+
+    - name: Configure AWS
+      uses: aws-actions/configure-aws-credentials@v4
+      with:
+        role-to-assume: ${{ secrets.aws_role }}
+        aws-region: ${{ env.aws_region }}
+        role-session-name: Github-OIDC
+
+    - name: Setup Terraform ${{ env.terraform_version }}  
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ env.terraform_version }}
+
+    - name: Setup Terragrunt ${{ env.terragrunt_version }}
+      run: |
+          wget https://github.com/gruntwork-io/terragrunt/releases/download/v${{ env.terragrunt_version }}/terragrunt_linux_amd64 > /dev/null
+          mv terragrunt_linux_amd64 terragrunt
+          chmod +x terragrunt
+          sudo mv terragrunt /usr/local/bin/
+          terragrunt -v
+ 
+    - name: Install Helm # For Terraform/Terragrunt deployments
+      run: |
+        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        
+    - name: Terragrunt Init for ${{ inputs.environment }}, ${{ env.region_directory }}
+      if: ${{ inputs.path == '' }}
+      working-directory: iac/${{ inputs.environment }}/${{ env.region_directory }}
+      run: terragrunt run-all init -terragrunt-non-interactive
+  
+    - name: Terragrunt Apply for ${{ inputs.environment }}, ${{ env.region_directory }}
+      if: ${{ inputs.path == '' }}
+      working-directory: iac/${{ inputs.environment }}/${{ env.region_directory }}
+      run: terragrunt run-all apply -terragrunt-non-interactive
+  
+    - name: Terragrunt Init for ${{ inputs.environment }}, ${{ env.region_directory }}, ${{ inputs.path }}
+      if: ${{ inputs.path != '' }}
+      working-directory: iac/${{ inputs.environment }}/${{ env.region_directory }}/${{ inputs.path }}
+      run: terragrunt run-all init -terragrunt-non-interactive
+  
+    - name: Terragrunt Apply for ${{ inputs.environment }}, ${{ env.region_directory }}, ${{ inputs.path }}
+      if: ${{ inputs.path != '' }}
+      working-directory: iac/${{ inputs.environment }}/${{ env.region_directory }}/${{ inputs.path }}
+      run: terragrunt run-all apply -terragrunt-non-interactive
