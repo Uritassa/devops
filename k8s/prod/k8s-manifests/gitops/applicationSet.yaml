@@ -1,0 +1,33 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: k8s-manifests
+  namespace: argocd
+spec:
+  generators:
+    - list:
+        elements:
+          - namespace: kube-system
+            path: k8s/dev/k8s-manifests/system
+          - namespace: tools
+            path: k8s/dev/k8s-manifests/tools
+          - namespace: monitoring
+            path: k8s/dev/k8s-manifests/monitoring
+  template:
+    metadata:
+      name: '{{namespace}}-manifests'
+    spec:
+      destination:
+        namespace: '{{namespace}}'
+        server: https://kubernetes.default.svc
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+        automated:
+          prune: false
+          selfHeal: true
+      source:
+        path: '{{path}}'
+        repoURL: https://github.com/Uritassa/devops
+        targetRevision: main
+      project: default

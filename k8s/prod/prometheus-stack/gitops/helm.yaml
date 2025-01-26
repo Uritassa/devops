@@ -1,0 +1,82 @@
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-stack
+  namespace: argocd
+spec:
+  project: monitoring
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=false
+    automated:
+      prune: true
+      selfHeal: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  source:
+    chart: kube-prometheus-stack
+    repoURL: https://prometheus-community.github.io/helm-charts
+    targetRevision: 61.3.2
+    helm:
+      values: |
+        crds:
+          enabled: false
+        defaultRules:
+          create: true
+          rules:
+            windows: false
+        alertmanager:
+          enabled: false
+        prometheus:
+          podDisruptionBudget:
+            enabled: false
+            minAvailable: 
+          prometheusSpec:
+            resources:
+              requests:
+                cpu: 200m
+                memory: 248Mi
+              limits:
+                cpu: 1000m
+                memory: 2Gi
+            ruleSelectorNilUsesHelmValues: false
+            serviceMonitorSelectorNilUsesHelmValues: false
+            scrapeConfigSelectorNilUsesHelmValues: false
+            ruleSelector:
+              matchExpressions:
+                - key: prometheus
+                  operator: In
+                  values:
+                  - prom-rules
+              matchLabels:
+                prometheus: prom-rules
+            nodeSelector:
+              nodegroup: monitoring
+              karpenter.k8s.aws/instance-size: medium
+            storageSpec: 
+              volumeClaimTemplate:
+                spec:
+                  storageClassName: gp3
+                  accessModes: ["ReadWriteOnce"]
+                  resources:
+                    requests:
+                      storage: 20Gi
+            retention: 7d
+            alertingEndpoints:
+            - name: prometheus-alertmanager-headless
+              namespace: monitoring
+              port: 9093
+              scheme: http
+
+        prometheusOperator:
+          nodeSelector:
+            nodegroup: monitoring
+
+        kube-state-metrics:
+          nodeSelector:
+            nodegroup: monitoring
+        grafana:
+          enabled: false

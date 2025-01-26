@@ -1,0 +1,20 @@
+apiVersion: karpenter.k8s.aws/v1beta1
+kind: EC2NodeClass
+metadata:
+  name: default
+spec:
+  role: ""
+  amiFamily: AL2023
+
+  subnetSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ""
+
+
+  securityGroupSelectorTerms:
+    - tags:
+        karpenter.sh/discovery: ""
+  tags:
+    karpenter.sh/discovery: ""
+    Name: ""
+
