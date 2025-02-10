@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-cert-acm
+  labels:
+    app: kube-cert-acm
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kube-cert-acm
+  template:
+    metadata:
+      labels:
+        app: kube-cert-acm
+    spec:
+      serviceAccountName: kube-cert-acm
+      containers:
+        - name: kube-cert-acm
+          image: 123456789310.dkr.ecr.us-east-2.amazonaws.com/kube-cert-acm:latest
+          imagePullPolicy: IfNotPresent
+          livenessProbe:
+            exec:
+              command:
+              - pidof
+              - python3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+          envFrom:
+          - configMapRef:
+              name: kube-cert-acm
+          volumeMounts:
+          - name: config
+            mountPath: "/app/config"
+            readOnly: true
+      nodeSelector:
+        nodegroup: tools
+      volumes:
+        - name: config
+          configMap:
+            name: kube-cert-acm

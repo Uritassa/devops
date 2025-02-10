@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-cert-acm
+  namespace: argocd
+spec:
+  destination:
+    name: ''
+    namespace: tools
+    server: https://kubernetes.default.svc
+  source:
+    path: k8s/dev/kube-cert-acm
+    repoURL: https://github.com/Uritassa/devops
+    targetRevision: main
+  sources: []
+  project: tools
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true

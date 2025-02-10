@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kube-cert-acm
+data:
+  AWS_DEFAULT_REGION: us-east-2
+  LOG_LEVEL: INFO
+  CHECK_INTERVAL_SECONDS: "6000"
+  certificates_config.yaml: |
+    # name of the certificate
+    - cert: tls-cert
+      # your root domain configured in cert-manager
+      domain_name: "mydomain.com"
+      # cert-manager namespace 
+      namespace: kube-system
